@@ -1,0 +1,16 @@
+{
+  "simple_replies": [
+    {
+      "matches": ["give me"],
+      "file": "no-way-dude-no.gif"
+    },
+    {
+      "matches": ["too many keys", "the keys are overly plentiful"],
+      "file": "too-many-keys.png"
+    },
+    {
+      "matches": ["huh"],
+      "text": "https://tenor.com/view/huh-huh-meme-huh-gif-simpsons-meme-simpsons-gif-24537736"
+    }
+  ]
+}

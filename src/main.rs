@@ -1,52 +1,32 @@
-use std::env;
+#![warn(clippy::str_to_string)]
 
-use serenity::async_trait;
-use serenity::framework::standard::macros::{command, group};
-use serenity::framework::standard::{Args, CommandResult, StandardFramework};
-use serenity::model::channel::Message;
-use serenity::prelude::*;
+mod commands;
+mod reply;
 
-const REPLIES: &[(&[&str], Option<&str>, Option<&str>)] = &[
-    (&["give me"], Some("no-way-dude-no.gif"), None),
-    (
-        &["too many keys", "the keys are overly plentiful"],
-        Some("too-many-keys.png"),
-        None,
-    ),
-    (
-        &["huh"],
-        None,
-        Some("https://tenor.com/view/huh-huh-meme-huh-gif-simpsons-meme-simpsons-gif-24537736"),
-    ),
-];
+use poise::{serenity_prelude as serenity, Event};
+use std::{env::var, time::Duration};
 
-#[group]
-#[commands(ping, name_yourself)]
-struct General;
+// Types used by all command functions
+type Error = Box<dyn std::error::Error + Send + Sync>;
+type Context<'a> = poise::Context<'a, Data, Error>;
 
-struct Handler;
+// Custom user data passed to all command functions
+pub struct Data {
+    reply_config: reply::ReplyConfig,
+}
 
-#[async_trait]
-impl EventHandler for Handler {
-    async fn message(&self, ctx: Context, msg: Message) {
-        if !msg.author.bot {
-            for set in REPLIES {
-                for trigger in set.0 {
-                    if msg.content.to_lowercase().contains(trigger) {
-                        let _ = msg
-                            .channel_id
-                            .send_message(&ctx.http, |m| {
-                                if let Some(file) = set.1 {
-                                    m.add_file(file);
-                                }
-                                if let Some(text) = set.2 {
-                                    m.content(text);
-                                }
-                                m.reference_message(&msg)
-                            })
-                            .await;
-                    }
-                }
+async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
+    // This is our custom error handler
+    // They are many errors that can occur, so we only handle the ones we want to customize
+    // and forward the rest to the default handler
+    match error {
+        poise::FrameworkError::Setup { error, .. } => panic!("Failed to start bot: {:?}", error),
+        poise::FrameworkError::Command { error, ctx } => {
+            println!("Error in command `{}`: {:?}", ctx.command().name, error,);
+        }
+        error => {
+            if let Err(e) = poise::builtins::on_error(error).await {
+                println!("Error while handling error: {}", e)
             }
         }
     }
@@ -54,41 +34,74 @@ impl EventHandler for Handler {
 
 #[tokio::main]
 async fn main() {
-    let framework = StandardFramework::new()
-        .configure(|c| c.prefix("~")) // set the bot's prefix to "~"
-        .group(&GENERAL_GROUP);
+    env_logger::init();
 
-    // Login with a bot token from the environment
-    let token = env::var("DISCORD_TOKEN").expect("token");
-    let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
-    let mut client = Client::builder(token, intents)
-        .event_handler(Handler)
-        .framework(framework)
+    let reply_config_file =
+        std::fs::File::open("reply_config.json").expect("Reply configuration is missing...");
+
+    let reply_config =
+        serde_json::from_reader(reply_config_file).expect("Bad reply configuration.");
+
+    // FrameworkOptions contains all of poise's configuration option in one struct
+    // Every option can be omitted to use its default value
+    let options = poise::FrameworkOptions {
+        commands: vec![commands::help(), commands::ping(), commands::rename()],
+        prefix_options: poise::PrefixFrameworkOptions {
+            prefix: Some("!".into()),
+            edit_tracker: Some(poise::EditTracker::for_timespan(Duration::from_secs(3600))),
+            additional_prefixes: vec![
+                poise::Prefix::Literal("hey bot"),
+                poise::Prefix::Literal("hey bot,"),
+            ],
+            ..Default::default()
+        },
+        /// The global error handler for all error cases that may occur
+        on_error: |error| Box::pin(on_error(error)),
+        /// This code is run before every command
+        pre_command: |ctx| {
+            Box::pin(async move {
+                println!("Executing command {}...", ctx.command().qualified_name);
+            })
+        },
+        /// This code is run after a command if it was successful (returned Ok)
+        post_command: |ctx| {
+            Box::pin(async move {
+                println!("Executed command {}!", ctx.command().qualified_name);
+            })
+        },
+        /// Enforce command checks even for owners (enforced by default)
+        /// Set to true to bypass checks, which is useful for testing
+        skip_checks_for_owners: false,
+        event_handler: |ctx, event, _framework, data| {
+            Box::pin(async move {
+                match event.clone() {
+                    Event::Message { new_message } => {
+                        if !new_message.author.bot {
+                            reply::check_and_reply(ctx, &data.reply_config, new_message).await?;
+                        }
+                    }
+                    _ => {}
+                }
+                Ok(())
+            })
+        },
+        ..Default::default()
+    };
+
+    poise::Framework::builder()
+        .token(var("DISCORD_TOKEN").expect("Missing `DISCORD_TOKEN` env var."))
+        .setup(move |ctx, _ready, framework| {
+            Box::pin(async move {
+                println!("Logged in as {}", _ready.user.name);
+                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                Ok(Data { reply_config })
+            })
+        })
+        .options(options)
+        .intents(
+            serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT,
+        )
+        .run()
         .await
-        .expect("Error creating client");
-
-    // start listening for events by starting a single shard
-    if let Err(why) = client.start().await {
-        println!("An error occurred while running the client: {:?}", why);
-    }
-}
-
-#[command]
-async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
-    msg.reply(ctx, "Pong!").await?;
-
-    Ok(())
-}
-
-#[command]
-async fn name_yourself(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    if let Some(guild_id) = msg.guild_id {
-        guild_id
-            .edit_nickname(&ctx.http, Some(&format!("{}", args.rest())))
-            .await?;
-    }
-    msg.channel_id
-        .send_message(&ctx.http, |m| m.content("Your wish is my command..."))
-        .await?;
-    Ok(())
+        .unwrap();
 }
