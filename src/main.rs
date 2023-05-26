@@ -54,7 +54,12 @@ async fn main() {
             commands::ping(),
             commands::rename(),
             commands::xkcd(),
+            reply::add_reply_trigger(),
+            reply::change_reply(),
+            reply::delete_reply_set(),
+            reply::delete_reply_trigger(),
             reply::new_reply(),
+            reply::print_reply_sets(),
         ],
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("!".into()),
@@ -83,7 +88,12 @@ async fn main() {
                 match event.clone() {
                     Event::Message { new_message } => {
                         if !new_message.author.bot {
-                            reply::check_and_reply(ctx, &data.reply_config.read().await.clone(), new_message).await?;
+                            reply::check_and_reply(
+                                ctx,
+                                &data.reply_config.read().await.clone(),
+                                new_message,
+                            )
+                            .await?;
                         }
                     }
                     _ => {}
