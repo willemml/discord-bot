@@ -1,16 +1,9 @@
+use crate::checks::*;
 use poise::serenity_prelude::CacheHttp;
 
 use rand::Rng;
 
 use crate::{Context, Error};
-
-pub async fn owner_check(ctx: Context<'_>) -> Result<bool, Error> {
-    Ok(if ctx.author().id.0 == ctx.data().owner {
-        true
-    } else {
-        false
-    })
-}
 
 #[poise::command(prefix_command, track_edits, slash_command)]
 pub async fn help(
@@ -23,8 +16,6 @@ pub async fn help(
         ctx,
         command.as_deref(),
         poise::builtins::HelpConfiguration {
-            extra_text_at_bottom:
-                "This is a simple bot made using the Rust Poise framework for Discord.",
             ..Default::default()
         },
     )
@@ -38,7 +29,7 @@ pub async fn ping(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-#[poise::command(slash_command)]
+#[poise::command(slash_command, check = "owner_check")]
 pub async fn rename(
     ctx: Context<'_>,
     #[description = "My new name"] new_name: String,

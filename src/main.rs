@@ -1,5 +1,6 @@
 #![warn(clippy::str_to_string)]
 
+mod checks;
 mod commands;
 mod reply;
 
@@ -56,10 +57,12 @@ async fn main() {
             commands::xkcd(),
             reply::add_reply_trigger(),
             reply::change_reply(),
+            reply::change_timeout(),
             reply::delete_reply_set(),
             reply::delete_reply_trigger(),
             reply::new_reply(),
             reply::print_reply_sets(),
+            reply::toggle_auto_reply(),
         ],
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("!".into()),
@@ -80,20 +83,21 @@ async fn main() {
                 println!("Executed command {}!", ctx.command().qualified_name);
             })
         },
-        /// Enforce command checks even for owners (enforced by default)
-        /// Set to true to bypass checks, which is useful for testing
-        skip_checks_for_owners: false,
+        skip_checks_for_owners: true,
         event_handler: |ctx, event, _framework, data| {
             Box::pin(async move {
                 match event.clone() {
                     Event::Message { new_message } => {
                         if !new_message.author.bot {
-                            reply::check_and_reply(
-                                ctx,
-                                &data.reply_config.read().await.clone(),
-                                new_message,
-                            )
-                            .await?;
+                            if let Some(guild_id) = new_message.guild_id {
+                                if let Some(guild_reply_config) = {
+                                    let all_config = data.reply_config.read().await;
+                                    all_config.guild_configs.get(guild_id.as_u64()).cloned()
+                                } {
+                                    reply::check_and_reply(ctx, &guild_reply_config, new_message)
+                                        .await?;
+                                }
+                            }
                         }
                     }
                     _ => {}
