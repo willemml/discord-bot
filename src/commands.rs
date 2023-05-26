@@ -4,6 +4,14 @@ use rand::Rng;
 
 use crate::{Context, Error};
 
+pub async fn owner_check(ctx: Context<'_>) -> Result<bool, Error> {
+    Ok(if ctx.author().id.0 == ctx.data().owner {
+        true
+    } else {
+        false
+    })
+}
+
 #[poise::command(prefix_command, track_edits, slash_command)]
 pub async fn help(
     ctx: Context<'_>,
@@ -46,23 +54,17 @@ pub async fn rename(
 #[poise::command(slash_command, prefix_command)]
 pub async fn dice_roller(
     ctx: Context<'_>,
+    #[description = "What kind of dice to roll"]
+    #[min = 2]
+    #[max = 20]
     size: Option<usize>,
+    #[description = "How many dice to roll"]
+    #[min = 1]
+    #[max = 10]
     count: Option<usize>,
 ) -> Result<(), Error> {
-    let mut count = count.unwrap_or(1);
-    let mut size = size.unwrap_or(6);
-    if size < 1 {
-        ctx.say("Cannot divide by zero.").await?;
-        size = 2;
-    }
-    if count > 10 {
-        ctx.say("The maximum number of dice you can roll at once is 10, rolling 10 dice...")
-            .await?;
-        count = 10;
-    } else if count == 0 {
-        ctx.say("You must roll at least one die.").await?;
-        count = 1;
-    }
+    let count = count.unwrap_or(1);
+    let size = size.unwrap_or(6);
 
     let mut response = format!("```Results ({}d{}):", count, size);
 
@@ -81,7 +83,12 @@ pub async fn dice_roller(
 }
 
 #[poise::command(slash_command, prefix_command)]
-pub async fn xkcd(ctx: Context<'_>, number: usize) -> Result<(), Error> {
-    ctx.say(format!("https://xkcd.com/{}", number)).await?;
+pub async fn xkcd(ctx: Context<'_>, number: Option<usize>) -> Result<(), Error> {
+    const XKCD_URL: &str = "https://xkcd.com/";
+    if let Some(number) = number {
+        ctx.say(format!("{}/{}", XKCD_URL, number)).await?;
+    } else {
+        ctx.say(XKCD_URL).await?;
+    }
     Ok(())
 }

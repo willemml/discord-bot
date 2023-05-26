@@ -1,28 +1,49 @@
 {
   "simple_replies": [
     {
-      "matches": ["give me"],
-      "file": "no-way-dude-no.gif"
+      "matches": [
+        "give me"
+      ],
+      "text": "https://tenor.com/bIqnQ.gif"
     },
     {
-      "matches": ["too many keys", "the keys are overly plentiful"],
-      "file": "too-many-keys.png"
+      "matches": [
+        "too many keys",
+        "the keys are overly plentiful"
+      ],
+      "text": "https://media.discordapp.net/attachments/1105633256788996182/1111457921025450044/too-many-keys.png"
     },
     {
-      "matches": ["huh"],
+      "matches": [
+        "huh"
+      ],
       "text": "https://tenor.com/view/huh-huh-meme-huh-gif-simpsons-meme-simpsons-gif-24537736"
     },
     {
-      "matches": ["im on break", "im at work"],
+      "matches": [
+        "im on break",
+        "im at work"
+      ],
       "text": "https://xkcd.com/303"
     },
     {
-      "matches": ["happy birthday"],
+      "matches": [
+        "happy birthday"
+      ],
       "text": "https://xkcd.com/314"
     },
     {
-      "matches": ["works for me", "to each their own"],
+      "matches": [
+        "works for me",
+        "to each their own"
+      ],
       "text": "https://xkcd.com/1172"
+    },
+    {
+      "matches": [
+        "testingthisthing"
+      ],
+      "text": "yay"
     }
   ]
 }

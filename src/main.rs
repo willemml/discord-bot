@@ -4,7 +4,8 @@ mod commands;
 mod reply;
 
 use poise::{serenity_prelude as serenity, Event};
-use std::{env::var, time::Duration};
+use std::{env::var, sync::Arc, time::Duration};
+use tokio::sync::RwLock;
 
 // Types used by all command functions
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -12,7 +13,8 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 
 // Custom user data passed to all command functions
 pub struct Data {
-    reply_config: reply::ReplyConfig,
+    reply_config: Arc<RwLock<reply::ReplyConfig>>,
+    owner: u64,
 }
 
 async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
@@ -39,20 +41,24 @@ async fn main() {
     let reply_config_file =
         std::fs::File::open("reply_config.json").expect("Reply configuration is missing...");
 
-    let reply_config =
-        serde_json::from_reader(reply_config_file).expect("Bad reply configuration.");
+    let reply_config = Arc::new(RwLock::new(
+        serde_json::from_reader(reply_config_file).expect("Bad reply configuration."),
+    ));
 
     // FrameworkOptions contains all of poise's configuration option in one struct
     // Every option can be omitted to use its default value
     let options = poise::FrameworkOptions {
-        commands: vec![commands::help(), commands::ping(), commands::rename(), commands::dice_roller(), commands::xkcd()],
+        commands: vec![
+            commands::dice_roller(),
+            commands::help(),
+            commands::ping(),
+            commands::rename(),
+            commands::xkcd(),
+            reply::new_reply(),
+        ],
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("!".into()),
             edit_tracker: Some(poise::EditTracker::for_timespan(Duration::from_secs(3600))),
-            additional_prefixes: vec![
-                poise::Prefix::Literal("hey bot"),
-                poise::Prefix::Literal("hey bot,"),
-            ],
             ..Default::default()
         },
         /// The global error handler for all error cases that may occur
@@ -77,7 +83,7 @@ async fn main() {
                 match event.clone() {
                     Event::Message { new_message } => {
                         if !new_message.author.bot {
-                            reply::check_and_reply(ctx, &data.reply_config, new_message).await?;
+                            reply::check_and_reply(ctx, &data.reply_config.read().await.clone(), new_message).await?;
                         }
                     }
                     _ => {}
@@ -94,7 +100,10 @@ async fn main() {
             Box::pin(async move {
                 println!("Logged in as {}", _ready.user.name);
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                Ok(Data { reply_config })
+                Ok(Data {
+                    reply_config,
+                    owner: 237237152495304704,
+                })
             })
         })
         .options(options)
