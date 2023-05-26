@@ -79,3 +79,9 @@ pub async fn dice_roller(
 
     Ok(())
 }
+
+#[poise::command(slash_command, prefix_command)]
+pub async fn xkcd(ctx: Context<'_>, number: usize) -> Result<(), Error> {
+    ctx.say(format!("https://xkcd.com/{}", number)).await?;
+    Ok(())
+}

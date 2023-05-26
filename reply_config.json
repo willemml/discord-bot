@@ -11,6 +11,18 @@
     {
       "matches": ["huh"],
       "text": "https://tenor.com/view/huh-huh-meme-huh-gif-simpsons-meme-simpsons-gif-24537736"
+    },
+    {
+      "matches": ["im on break", "im at work"],
+      "text": "https://xkcd.com/303"
+    },
+    {
+      "matches": ["happy birthday"],
+      "text": "https://xkcd.com/314"
+    },
+    {
+      "matches": ["works for me", "to each their own"],
+      "text": "https://xkcd.com/1172"
     }
   ]
 }
