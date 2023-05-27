@@ -3,7 +3,7 @@ use poise::serenity_prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 type CommandResult = std::result::Result<(), crate::Error>;
 
@@ -33,13 +33,24 @@ pub async fn check_and_reply(
     if reply_config.auto_reply {
         for set in &reply_config.simple_replies {
             let re = Regex::new(set.regex.as_str()).map_err(|_| Error::Other("bad regex"))?;
-            if re.is_match(&msg.content.to_lowercase()) {
-                msg.channel_id
+            if re.is_match(&msg.content) {
+                let message = msg
+                    .channel_id
                     .send_message(&ctx.http(), |m| {
                         m.content(set.reply.clone());
                         m.reference_message(&msg)
                     })
                     .await?;
+
+                let timeout = { reply_config.timeout };
+                let http = { ctx.http.clone() };
+
+                if timeout != 0 {
+                    tokio::task::spawn(async move {
+                        tokio::time::sleep(Duration::from_millis(timeout)).await;
+                        let _ = message.delete(&http).await;
+                    });
+                }
             }
         }
     }
