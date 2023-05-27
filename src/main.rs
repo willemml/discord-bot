@@ -4,7 +4,10 @@ mod checks;
 mod commands;
 mod reply;
 
-use poise::{serenity_prelude as serenity, Event};
+use poise::{
+    serenity_prelude::{self as serenity, ReactionType},
+    Event,
+};
 use std::{env::var, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 
@@ -50,10 +53,13 @@ async fn main() {
     // Every option can be omitted to use its default value
     let options = poise::FrameworkOptions {
         commands: vec![
+            commands::author(),
+            commands::delete_message(),
             commands::dice_roller(),
             commands::help(),
             commands::ping(),
             commands::rename(),
+            commands::source_code(),
             commands::xkcd(),
             reply::change_regex(),
             reply::change_reply(),
@@ -83,7 +89,7 @@ async fn main() {
             })
         },
         skip_checks_for_owners: true,
-        event_handler: |ctx, event, _framework, data| {
+        event_handler: |ctx, event, framework, data| {
             Box::pin(async move {
                 match event.clone() {
                     Event::Message { new_message } => {
@@ -95,6 +101,20 @@ async fn main() {
                                 } {
                                     reply::check_and_reply(ctx, &guild_reply_config, new_message)
                                         .await?;
+                                }
+                            }
+                        }
+                    }
+                    Event::ReactionAdd { add_reaction } => {
+                        if let Some(user) = add_reaction.user_id {
+                            if *user.as_u64() == data.owner {
+                                if let ReactionType::Unicode(unicode) = &add_reaction.emoji {
+                                    if unicode.as_str() == "🗑\u{fe0f}" {
+                                        let message = add_reaction.message(&ctx.http).await?;
+                                        if message.author.id == framework.bot_id {
+                                            message.delete(&ctx.http).await?;
+                                        }
+                                    }
                                 }
                             }
                         }

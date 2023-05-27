@@ -1,9 +1,27 @@
-use crate::checks::*;
-use poise::serenity_prelude::CacheHttp;
+use std::time::Duration;
 
+use crate::checks::*;
+
+use poise::serenity_prelude::CacheHttp;
 use rand::Rng;
 
 use crate::{Context, Error};
+
+pub async fn command_response(
+    ctx: Context<'_>,
+    alternate_message: Option<&str>,
+    delete_timeout: Option<u64>,
+) -> Result<(), Error> {
+    let timeout = delete_timeout.unwrap_or(5000);
+    let message = alternate_message.unwrap_or("Done.");
+    let reply = ctx.say(message).await?.into_message().await?;
+    let http = ctx.serenity_context().http.clone();
+    tokio::task::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(timeout)).await;
+        let _ = reply.delete(&http).await;
+    });
+    Ok(())
+}
 
 #[poise::command(prefix_command, track_edits, slash_command)]
 pub async fn help(
@@ -29,17 +47,31 @@ pub async fn ping(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-#[poise::command(slash_command, check = "owner_check")]
+#[poise::command(slash_command, guild_only, check = "owner_check")]
 pub async fn rename(
     ctx: Context<'_>,
     #[description = "My new name"] new_name: String,
 ) -> Result<(), Error> {
-    if let Some(guild_id) = ctx.guild_id() {
-        guild_id.edit_nickname(&ctx.http(), Some(&new_name)).await?;
-        ctx.say("Your wish is my command...").await?;
-    }
+    ctx.guild_id()
+        .unwrap()
+        .edit_nickname(&ctx.http(), Some(&new_name))
+        .await?;
+    command_response(ctx, None, None).await
+}
 
-    Ok(())
+#[poise::command(slash_command, prefix_command, check = "owner_check")]
+pub async fn delete_message(ctx: Context<'_>, message_id: u64) -> Result<(), Error> {
+    let response = if ctx
+        .channel_id()
+        .delete_message(ctx.http(), message_id)
+        .await
+        .is_err()
+    {
+        Some("Failed to delete the message.")
+    } else {
+        None
+    };
+    command_response(ctx, response, None).await
 }
 
 #[poise::command(slash_command, prefix_command)]
@@ -81,5 +113,18 @@ pub async fn xkcd(ctx: Context<'_>, number: Option<usize>) -> Result<(), Error> 
     } else {
         ctx.say(XKCD_URL).await?;
     }
+    Ok(())
+}
+
+#[poise::command(slash_command, prefix_command)]
+pub async fn source_code(ctx: Context<'_>) -> Result<(), Error> {
+    ctx.say("https://github.com/willemml/discord-bot").await?;
+    Ok(())
+}
+
+#[poise::command(slash_command, prefix_command)]
+pub async fn author(ctx: Context<'_>) -> Result<(), Error> {
+    ctx.say("<@237237152495304704> (https://github.com/willemml)")
+        .await?;
     Ok(())
 }

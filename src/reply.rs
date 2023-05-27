@@ -1,4 +1,5 @@
 use crate::checks::*;
+use crate::commands::command_response;
 use poise::serenity_prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -94,7 +95,6 @@ async fn edit_replies<F: FnOnce(&mut GuildReplyConfig) -> ()>(
         };
 
         write_config(new_config).await?;
-    } else {
     }
     Ok(())
 }
@@ -108,9 +108,12 @@ pub async fn toggle_auto_reply(ctx: crate::Context<'_>, new_state: Option<bool>)
     })
     .await?;
 
-    ctx.say(format!("Auto reply is now {}.", auto_reply))
-        .await?;
-    Ok(())
+    command_response(
+        ctx,
+        Some(&format!("Auto reply is now {}.", auto_reply)),
+        None,
+    )
+    .await
 }
 
 #[poise::command(slash_command, check = "manage_messages_check")]
@@ -120,8 +123,7 @@ pub async fn change_timeout(ctx: crate::Context<'_>, new_timeout: u64) -> Comman
     })
     .await?;
 
-    ctx.say("Done.").await?;
-    Ok(())
+    command_response(ctx, None, None).await
 }
 
 #[poise::command(slash_command, check = "manage_messages_check")]
@@ -131,8 +133,7 @@ pub async fn new_reply(ctx: crate::Context<'_>, regex: String, reply: String) ->
     })
     .await?;
 
-    ctx.say("Done.").await?;
-    Ok(())
+    command_response(ctx, None, None).await
 }
 
 #[poise::command(slash_command, prefix_command)]
@@ -168,8 +169,7 @@ pub async fn delete_reply_set(ctx: crate::Context<'_>, number: usize) -> Command
     })
     .await?;
 
-    ctx.say("Done.").await?;
-    Ok(())
+    command_response(ctx, None, None).await
 }
 
 #[poise::command(slash_command, prefix_command, check = "manage_messages_check")]
@@ -183,8 +183,7 @@ pub async fn change_regex(
     })
     .await?;
 
-    ctx.say("Done.").await?;
-    Ok(())
+    command_response(ctx, None, None).await
 }
 
 #[poise::command(slash_command, check = "manage_messages_check")]
@@ -198,6 +197,5 @@ pub async fn change_reply(
     })
     .await?;
 
-    ctx.say("Done.").await?;
-    Ok(())
+    command_response(ctx, None, None).await
 }
