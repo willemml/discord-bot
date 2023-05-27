@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use crate::checks::*;
 
-use poise::serenity_prelude::CacheHttp;
+use poise::serenity_prelude::{CacheHttp, ReactionType};
 use rand::Rng;
 
 use crate::{Context, Error};
@@ -12,14 +12,21 @@ pub async fn command_response(
     alternate_message: Option<&str>,
     delete_timeout: Option<u64>,
 ) -> Result<(), Error> {
-    let timeout = delete_timeout.unwrap_or(5000);
+    let timeout = delete_timeout.unwrap_or(3000);
     let message = alternate_message.unwrap_or("Done.");
     let reply = ctx.say(message).await?.into_message().await?;
-    let http = ctx.serenity_context().http.clone();
-    tokio::task::spawn(async move {
-        tokio::time::sleep(Duration::from_millis(timeout)).await;
-        let _ = reply.delete(&http).await;
-    });
+    if timeout == 0 {
+        reply
+            .react(ctx.http(), ReactionType::Unicode("🗑\u{fe0f}".to_string()))
+            .await?;
+    } else {
+        let http = ctx.serenity_context().http.clone();
+
+        tokio::task::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(timeout)).await;
+            let _ = reply.delete(&http).await;
+        });
+    }
     Ok(())
 }
 
@@ -100,31 +107,37 @@ pub async fn dice_roller(
         response.push_str("\n```");
     }
 
-    ctx.say(response).await?;
-
-    Ok(())
+    command_response(ctx, Some(&response), Some(0)).await
 }
 
 #[poise::command(slash_command, prefix_command)]
 pub async fn xkcd(ctx: Context<'_>, number: Option<usize>) -> Result<(), Error> {
     const XKCD_URL: &str = "https://xkcd.com/";
-    if let Some(number) = number {
-        ctx.say(format!("{}/{}", XKCD_URL, number)).await?;
+    let response = if let Some(number) = number {
+        format!("{}/{}", XKCD_URL, number)
     } else {
-        ctx.say(XKCD_URL).await?;
-    }
-    Ok(())
+        XKCD_URL.to_string()
+    };
+
+    command_response(ctx, Some(&response), Some(0)).await
 }
 
 #[poise::command(slash_command, prefix_command)]
 pub async fn source_code(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("https://github.com/willemml/discord-bot").await?;
-    Ok(())
+    command_response(
+        ctx,
+        Some("https://github.com/willemml/discord-bot"),
+        Some(0),
+    )
+    .await
 }
 
 #[poise::command(slash_command, prefix_command)]
 pub async fn author(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("<@237237152495304704> (https://github.com/willemml)")
-        .await?;
-    Ok(())
+    command_response(
+        ctx,
+        Some("<@237237152495304704> (https://github.com/willemml)"),
+        Some(0),
+    )
+    .await
 }

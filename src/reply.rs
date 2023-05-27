@@ -158,8 +158,7 @@ pub async fn print_reply_sets(ctx: crate::Context<'_>) -> CommandResult {
         ));
     }
     message.push_str("```");
-    ctx.say(message).await?;
-    Ok(())
+    command_response(ctx, Some(&message), Some(0)).await
 }
 
 #[poise::command(slash_command, prefix_command, check = "manage_messages_check")]

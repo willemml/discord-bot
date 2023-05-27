@@ -107,7 +107,7 @@ async fn main() {
                     }
                     Event::ReactionAdd { add_reaction } => {
                         if let Some(user) = add_reaction.user_id {
-                            if *user.as_u64() == data.owner {
+                            if user != framework.bot_id {
                                 if let ReactionType::Unicode(unicode) = &add_reaction.emoji {
                                     if unicode.as_str() == "🗑\u{fe0f}" {
                                         let message = add_reaction.message(&ctx.http).await?;
