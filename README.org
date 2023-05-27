@@ -1,0 +1,9 @@
+#+title: Discord Bot
+
+A simple Discord bot.
+I started this project to explore the Discord API through rust crates (serenity-rs).
+
+** Features
+
+- "dice roller" roll up to 10 dice of your choice at once (up to 20 sides)
+- "auto reply" scan all incoming messages for a regex match, reply with the configured string if there is a match
