@@ -1,5 +1,6 @@
 use crate::checks::*;
 use poise::serenity_prelude::*;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashMap;
@@ -8,8 +9,8 @@ type CommandResult = std::result::Result<(), crate::Error>;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Reply {
-    matches: Vec<String>,
-    text: String,
+    regex: String,
+    reply: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -31,20 +32,14 @@ pub async fn check_and_reply(
 ) -> Result<()> {
     if reply_config.auto_reply {
         for set in &reply_config.simple_replies {
-            for trigger in &set.matches {
-                if msg
-                    .content
-                    .to_lowercase()
-                    .replace("'", "")
-                    .contains(trigger)
-                {
-                    msg.channel_id
-                        .send_message(&ctx.http(), |m| {
-                            m.content(set.text.clone());
-                            m.reference_message(&msg)
-                        })
-                        .await?;
-                }
+            let re = Regex::new(set.regex.as_str()).map_err(|_| Error::Other("bad regex"))?;
+            if re.is_match(&msg.content.to_lowercase()) {
+                msg.channel_id
+                    .send_message(&ctx.http(), |m| {
+                        m.content(set.reply.clone());
+                        m.reference_message(&msg)
+                    })
+                    .await?;
             }
         }
     }
@@ -102,7 +97,8 @@ pub async fn toggle_auto_reply(ctx: crate::Context<'_>, new_state: Option<bool>)
     })
     .await?;
 
-    ctx.say(format!("Auto reply is now {}.", auto_reply)).await?;
+    ctx.say(format!("Auto reply is now {}.", auto_reply))
+        .await?;
     Ok(())
 }
 
@@ -118,16 +114,9 @@ pub async fn change_timeout(ctx: crate::Context<'_>, new_timeout: u64) -> Comman
 }
 
 #[poise::command(slash_command, check = "manage_messages_check")]
-pub async fn new_reply(
-    ctx: crate::Context<'_>,
-    trigger: String,
-    response: String,
-) -> CommandResult {
+pub async fn new_reply(ctx: crate::Context<'_>, regex: String, reply: String) -> CommandResult {
     edit_replies(ctx, |replies| {
-        replies.simple_replies.push(Reply {
-            matches: vec![trigger],
-            text: response,
-        });
+        replies.simple_replies.push(Reply { reply, regex });
     })
     .await?;
 
@@ -151,10 +140,9 @@ pub async fn print_reply_sets(ctx: crate::Context<'_>) -> CommandResult {
         .iter()
         .enumerate()
     {
-        let triggers = set.matches.join("\"\n            \"");
         message.push_str(&format!(
-            "Set #{}:\n  triggers: \"{}\"\n  response: \"{}\"\n",
-            n, triggers, set.text
+            "Set #{}:\n  regex: \"{}\"\n  reply: \"{}\"\n",
+            n, set.regex, set.reply
         ));
     }
     message.push_str("```");
@@ -174,28 +162,13 @@ pub async fn delete_reply_set(ctx: crate::Context<'_>, number: usize) -> Command
 }
 
 #[poise::command(slash_command, prefix_command, check = "manage_messages_check")]
-pub async fn delete_reply_trigger(
+pub async fn change_regex(
     ctx: crate::Context<'_>,
     set_number: usize,
-    trigger: usize,
+    new_regex: String,
 ) -> CommandResult {
     edit_replies(ctx, |replies| {
-        replies.simple_replies[set_number].matches.remove(trigger);
-    })
-    .await?;
-
-    ctx.say("Done.").await?;
-    Ok(())
-}
-
-#[poise::command(slash_command, check = "manage_messages_check")]
-pub async fn add_reply_trigger(
-    ctx: crate::Context<'_>,
-    set_number: usize,
-    trigger: String,
-) -> CommandResult {
-    edit_replies(ctx, |replies| {
-        replies.simple_replies[set_number].matches.push(trigger);
+        replies.simple_replies[set_number].regex = new_regex;
     })
     .await?;
 
@@ -207,10 +180,10 @@ pub async fn add_reply_trigger(
 pub async fn change_reply(
     ctx: crate::Context<'_>,
     set_number: usize,
-    new_text: String,
+    new_reply: String,
 ) -> CommandResult {
     edit_replies(ctx, |replies| {
-        replies.simple_replies[set_number].text = new_text;
+        replies.simple_replies[set_number].reply = new_reply;
     })
     .await?;
 
